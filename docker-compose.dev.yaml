@@ -65,8 +65,7 @@ services:
     volumes:
       - ../bfi-service-gateway:/app
       - /var/run/docker.sock:/var/run/docker.sock
-      - /app/node_modules
-      - ../bfi-shared:/app/node_modules/@brace-for-impact/bfi-shared
+      - ./../bfi-shared:/app/../bfi-shared
     ports:
       - "${HOST_PORT_GATEWAY}:${PORT}"
     labels:
@@ -75,6 +74,38 @@ services:
       - "traefik.http.routers.gateway.rule=PathPrefix(`/api`)"
       - "traefik.http.services.gateway.loadbalancer.server.port=${PORT}"
 
+  bfi-dev-zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: bfi-dev-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: ${ZOOKEEPER_CLIENT_PORT}
+    networks:
+      - bfi-dev-net
+
+  bfi-dev-kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: bfi-dev-kafka
+    depends_on:
+      - bfi-dev-zookeeper
+    environment:
+      KAFKA_BROKER_ID: ${KAFKA_BROKER_ID}
+      KAFKA_ZOOKEEPER_CONNECT: ${KAFKA_ZOOKEEPER_CONNECT}
+      KAFKA_ADVERTISED_LISTENERS: ${KAFKA_ADVERTISED_LISTENERS}
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: ${KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR}
+    networks:
+      - bfi-dev-net
+    ports:
+      - "${KAFKA_HOST_PORT}:${KAFKA_CONTAINER_PORT}"
+
+  bfi-dev-kafdrop:
+    image: obsidiandynamics/kafdrop
+    container_name: kafdrop
+    environment:
+      - KAFKA_BROKERCONNECT=${KAFKA_BROKERCONNECT}
+    ports:
+      - "${KAFDROP_HOST_PORT}:${KAFDROP_CONTAINER_PORT}"
+    networks:
+      - bfi-dev-net
 
 networks:
   bfi-dev-net:
