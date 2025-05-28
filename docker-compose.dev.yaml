@@ -75,6 +75,28 @@ services:
       - "traefik.http.routers.gateway.rule=PathPrefix(`/api`)"
       - "traefik.http.services.gateway.loadbalancer.server.port=${PORT}"
 
+    # Monitor Service
+  bfi-dev-service-monitor:
+    build:
+      context: ../bfi-service-monitor
+    image: bfi-dev-service-monitor
+    environment:
+      - NODE_ENV=${NODE_ENV}
+      - PORT=${PORT}
+    networks:
+      - bfi-dev-net
+    volumes:
+      - ../bfi-service-monitor:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./../bfi-shared:/app/../bfi-shared
+    ports:
+      - "${HOST_PORT_MONITOR}:${PORT}"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.instance=external"
+      - "traefik.http.routers.monitor.rule=PathPrefix(`/api/monitor`)"
+      - "traefik.http.services.monitor.loadbalancer.server.port=${PORT}"
+
   bfi-dev-zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
     container_name: bfi-dev-zookeeper
