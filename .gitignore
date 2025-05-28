@@ -3,7 +3,11 @@ node_modules/
 
 # Environment variables
 .env
-.env.*  # In case you use .env.dev, .env.prod, etc.
+*.env.* 
+
+.env.dev
+
+.env.staging
 
 # Logs
 logs/

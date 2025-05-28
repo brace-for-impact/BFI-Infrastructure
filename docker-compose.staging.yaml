@@ -1,8 +1,9 @@
 services:
-  # External Traefik - only exposes /api -> gateway
-  bfi-dev-traefik-external:
+  bfi-staging-traefik-external:
     image: traefik:v2.10
-    container_name: bfi-dev-traefik-external
+    container_name: bfi-staging-traefik-external
+    env_file:
+      - .env.staging
     command:
       - "--api.insecure=true"
       - "--providers.docker=true"
@@ -11,24 +12,17 @@ services:
       - "--entrypoints.web.address=:${TRAEFIK_EXTERNAL_CONTAINER_PORT}"
     ports:
       - "${TRAEFIK_EXTERNAL_HOST_PORT}:${TRAEFIK_EXTERNAL_CONTAINER_PORT}"
-      - "${TRAEFIK_EXTERNAL_HOST_UI_PORT}:${TRAEFIK_EXTERNAL_CONTAINER_UI_PORT}"
     networks:
-      - bfi-dev-net
+      - bfi-staging-net
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     labels:
       - "traefik.enable=true"
       - "traefik.instance=external"
-      - "--api.dashboard=true"
-      - "--api.insecure=true"
-      - "--accesslog=true"
 
-
-
-  # Internal Traefik - handles internal service load balancing
-  bfi-dev-traefik-internal:
+  bfi-staging-traefik-internal:
     image: traefik:v2.10
-    container_name: bfi-dev-traefik-internal
+    container_name: bfi-staging-traefik-internal
     command:
       - "--api.insecure=true"
       - "--providers.docker=true"
@@ -36,9 +30,11 @@ services:
       - "--providers.docker.constraints=Label(`traefik.instance`, `internal`)"
       - "--entrypoints.web.address=:${TRAEFIK_INTENAL_CONTAINER_PORT}"
     networks:
-      - bfi-dev-net
+      - bfi-staging-net
+    env_file:
+      - .env.staging
     depends_on:
-      - bfi-dev-service-gateway
+      - bfi-staging-service-gateway
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
@@ -46,68 +42,66 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.instance=internal"
-      - "--api.dashboard=true"
-      - "--api.insecure=true"
-      - "--accesslog=true"
 
-
-
-  # Gateway Service
-  bfi-dev-service-gateway:
+  bfi-staging-service-gateway:
     build:
       context: ../bfi-service-gateway
-      target: dev
-    image: bfi-dev-service-gateway
+      target: staging
+    image: bfi-staging-service-gateway
     environment:
       - NODE_ENV=${NODE_ENV}
       - PORT=${PORT}
     networks:
-      - bfi-dev-net
+      - bfi-staging-net
+    env_file:
+      - .env.staging
     volumes:
       - ../bfi-service-gateway:/app
       - /var/run/docker.sock:/var/run/docker.sock
       - ./../bfi-shared:/app/../bfi-shared
-    ports:
-      - "${HOST_PORT_GATEWAY}:${PORT}"
     labels:
       - "traefik.enable=true"
       - "traefik.instance=external"
       - "traefik.http.routers.gateway.rule=PathPrefix(`/api`)"
       - "traefik.http.services.gateway.loadbalancer.server.port=${PORT}"
 
-  bfi-dev-zookeeper:
+  bfi-staging-zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
-    container_name: bfi-dev-zookeeper
+    container_name: bfi-staging-zookeeper
+    env_file:
+      - .env.staging
     environment:
       ZOOKEEPER_CLIENT_PORT: ${ZOOKEEPER_CLIENT_PORT}
     networks:
-      - bfi-dev-net
+      - bfi-staging-net
 
-  bfi-dev-kafka:
+  bfi-staging-kafka:
     image: confluentinc/cp-kafka:7.6.0
-    container_name: bfi-dev-kafka
+    container_name: bfi-staging-kafka
+    env_file:
+      - .env.staging
     depends_on:
-      - bfi-dev-zookeeper
+      - bfi-staging-zookeeper
     environment:
       KAFKA_BROKER_ID: ${KAFKA_BROKER_ID}
       KAFKA_ZOOKEEPER_CONNECT: ${KAFKA_ZOOKEEPER_CONNECT}
       KAFKA_ADVERTISED_LISTENERS: ${KAFKA_ADVERTISED_LISTENERS}
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: ${KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR}
     networks:
-      - bfi-dev-net
-    ports:
-      - "${KAFKA_HOST_PORT}:${KAFKA_CONTAINER_PORT}"
+      - bfi-staging-net
 
-  bfi-dev-kafdrop:
+  bfi-staging-kafdrop:
     image: obsidiandynamics/kafdrop
-    container_name: kafdrop
+    container_name: kafdrop-staging
+    env_file:
+      - .env.staging
     environment:
       - KAFKA_BROKERCONNECT=${KAFKA_BROKERCONNECT}
     ports:
       - "${KAFDROP_HOST_PORT}:${KAFDROP_CONTAINER_PORT}"
     networks:
-      - bfi-dev-net
+      - bfi-staging-net
 
 networks:
-  bfi-dev-net:
+  bfi-staging-net:
     driver: bridge
