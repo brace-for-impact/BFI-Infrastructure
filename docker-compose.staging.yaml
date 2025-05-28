@@ -37,33 +37,45 @@ services:
       - bfi-staging-service-gateway
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    ports:
-      - "${TRAEFIK_INTERNAL_HOST_UI_PORT}:${TRAEFIK_INTERNAL_CONTAINER_UI_PORT}"
     labels:
       - "traefik.enable=true"
       - "traefik.instance=internal"
 
   bfi-staging-service-gateway:
-    build:
-      context: ../bfi-service-gateway
-      target: staging
-    image: bfi-staging-service-gateway
+    image: braceforimpact/bfi-staging-service-gateway:latest
+    container_name: bfi-staging-service-gateway
     environment:
       - NODE_ENV=${NODE_ENV}
       - PORT=${PORT}
     networks:
       - bfi-staging-net
     env_file:
-      - .env.staging
+      - ../bfi-service-gateway/.env.staging
     volumes:
-      - ../bfi-service-gateway:/app
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./../bfi-shared:/app/../bfi-shared
     labels:
       - "traefik.enable=true"
       - "traefik.instance=external"
       - "traefik.http.routers.gateway.rule=PathPrefix(`/api`)"
       - "traefik.http.services.gateway.loadbalancer.server.port=${PORT}"
+
+  bfi-staging-service-monitor:
+    image: braceforimpact/bfi-staging-service-monitor:latest
+    container_name: bfi-staging-service-monitor
+    env_file:
+      - ../bfi-service-monitor/.env.staging
+    environment:
+      - NODE_ENV=${NODE_ENV}
+      - PORT=${PORT}
+    networks:
+      - bfi-staging-net
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      - "traefik.enable=true"
+      - "traefik.instance=external"
+      - "traefik.http.routers.monitor.rule=PathPrefix(`/api/monitor`)"
+      - "traefik.http.services.monitor.loadbalancer.server.port=${PORT}"
 
   bfi-staging-zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
