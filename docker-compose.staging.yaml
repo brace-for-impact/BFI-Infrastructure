@@ -50,7 +50,7 @@ services:
     networks:
       - bfi-staging-net
     env_file:
-      - ../bfi-service-gateway/.env.staging
+      - ./.env.gateway.staging
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     labels:
@@ -63,7 +63,7 @@ services:
     image: braceforimpact/bfi-staging-service-monitor:latest
     container_name: bfi-staging-service-monitor
     env_file:
-      - ../bfi-service-monitor/.env.staging
+      - ./.env.monitor.staging
     environment:
       - NODE_ENV=${NODE_ENV}
       - PORT=${PORT}
