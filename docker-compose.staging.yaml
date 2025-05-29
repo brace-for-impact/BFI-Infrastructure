@@ -2,8 +2,6 @@ services:
   bfi-staging-traefik-external:
     image: traefik:v2.10
     container_name: bfi-staging-traefik-external
-    env_file:
-      - .env.staging
     command:
       - "--api.insecure=true"
       - "--providers.docker=true"
@@ -31,8 +29,6 @@ services:
       - "--entrypoints.web.address=:${TRAEFIK_INTENAL_CONTAINER_PORT}"
     networks:
       - bfi-staging-net
-    env_file:
-      - .env.staging
     depends_on:
       - bfi-staging-service-gateway
     volumes:
@@ -80,8 +76,6 @@ services:
   bfi-staging-zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
     container_name: bfi-staging-zookeeper
-    env_file:
-      - .env.staging
     environment:
       ZOOKEEPER_CLIENT_PORT: ${ZOOKEEPER_CLIENT_PORT}
     networks:
@@ -90,8 +84,6 @@ services:
   bfi-staging-kafka:
     image: confluentinc/cp-kafka:7.6.0
     container_name: bfi-staging-kafka
-    env_file:
-      - .env.staging
     depends_on:
       - bfi-staging-zookeeper
     environment:
@@ -105,8 +97,6 @@ services:
   bfi-staging-kafdrop:
     image: obsidiandynamics/kafdrop
     container_name: kafdrop-staging
-    env_file:
-      - .env.staging
     environment:
       - KAFKA_BROKERCONNECT=${KAFKA_BROKERCONNECT}
     ports:
