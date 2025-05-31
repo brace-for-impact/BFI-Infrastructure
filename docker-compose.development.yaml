@@ -68,6 +68,7 @@ services:
     volumes:
       - ../bfi-service-gateway:/app
       - /var/run/docker.sock:/var/run/docker.sock
+      - ../bfi-shared:/app/node_modules/@brace-for-impact/bfi-shared
     ports:
       - "${HOST_PORT_GATEWAY}:${PORT}"
     labels:
