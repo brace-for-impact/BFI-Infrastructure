@@ -124,7 +124,7 @@ services:
       - "traefik.http.routers.monitor.rule=PathPrefix(`/api/monitor`)"
       - "traefik.http.services.monitor.loadbalancer.server.port=${PORT}"
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider --quiet http://localhost:${PORT} || exit 1"]
+      test: ["CMD-SHELL", "wget --spider --quiet http://localhost:${PORT}/api/monitor/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
