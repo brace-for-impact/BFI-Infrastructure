@@ -22,6 +22,12 @@ services:
       - "--api.dashboard=true"
       - "--api.insecure=true"
       - "--accesslog=true"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider --quiet http://localhost:${TRAEFIK_EXTERNAL_CONTAINER_UI_PORT}/dashboard/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 
 
 
@@ -49,6 +55,11 @@ services:
       - "--api.dashboard=true"
       - "--api.insecure=true"
       - "--accesslog=true"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider --quiet http://localhost:${TRAEFIK_INTERNAL_CONTAINER_UI_PORT}/dashboard/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 
 
@@ -75,8 +86,20 @@ services:
       - "traefik.instance=external"
       - "traefik.http.routers.gateway.rule=PathPrefix(`/api`)"
       - "traefik.http.services.gateway.loadbalancer.server.port=${PORT}"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider --quiet http://localhost:${PORT}/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      bfi-dev-kafka:
+        condition: service_healthy
+      bfi-dev-traefik-external:
+        condition: service_healthy
 
     # Monitor Service
+  
+  
   bfi-dev-service-monitor:
     build:
       context: ../bfi-service-monitor
@@ -99,6 +122,18 @@ services:
       - "traefik.instance=external"
       - "traefik.http.routers.monitor.rule=PathPrefix(`/api/monitor`)"
       - "traefik.http.services.monitor.loadbalancer.server.port=${PORT}"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider --quiet http://localhost:${PORT} || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      bfi-dev-kafka:
+        condition: service_healthy
+      bfi-dev-service-gateway:
+        condition: service_healthy
+      bfi-dev-traefik-internal:
+        condition: service_healthy
 
   bfi-dev-zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
@@ -107,12 +142,19 @@ services:
       ZOOKEEPER_CLIENT_PORT: ${ZOOKEEPER_CLIENT_PORT}
     networks:
       - bfi-dev-net
+    healthcheck:
+      # test: ["CMD-SHELL", "echo ruok | nc -w 2 localhost $${ZOOKEEPER_CLIENT_PORT} | grep imok"]
+      test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/${ZOOKEEPER_CLIENT_PORT}'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   bfi-dev-kafka:
     image: confluentinc/cp-kafka:7.6.0
     container_name: bfi-dev-kafka
     depends_on:
-      - bfi-dev-zookeeper
+      bfi-dev-zookeeper:
+        condition: service_healthy
     environment:
       KAFKA_BROKER_ID: ${KAFKA_BROKER_ID}
       KAFKA_ZOOKEEPER_CONNECT: ${KAFKA_ZOOKEEPER_CONNECT}
@@ -122,6 +164,13 @@ services:
       - bfi-dev-net
     ports:
       - "${KAFKA_HOST_PORT}:${KAFKA_CONTAINER_PORT}"
+    healthcheck:
+      # test: ["CMD-SHELL", "nc -z localhost $${KAFKA_CONTAINER_PORT}"]
+      test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/${KAFKA_CONTAINER_PORT}'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 
   bfi-dev-kafdrop:
     image: obsidiandynamics/kafdrop
@@ -132,6 +181,14 @@ services:
       - "${KAFDROP_HOST_PORT}:${KAFDROP_CONTAINER_PORT}"
     networks:
       - bfi-dev-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${KAFDROP_CONTAINER_PORT}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      bfi-dev-kafka:
+        condition: service_healthy
 
 networks:
   bfi-dev-net:
