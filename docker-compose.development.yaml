@@ -59,7 +59,7 @@ services:
       target: dev
     image: bfi-dev-service-gateway
     env_file:
-      - ../bfi-service-gateway/.env.development
+      - ./service-envs/.env.gateway.development
     environment:
       - NODE_ENV=${NODE_ENV}
       - PORT=${PORT}
@@ -83,7 +83,7 @@ services:
       target: dev
     image: bfi-dev-service-monitor
     env_file:
-      - ../bfi-service-monitor/.env.development
+      - ./service-envs/.env.monitor.development
     environment:
       - NODE_ENV=${NODE_ENV}
       - PORT=${PORT}
