@@ -1,13 +1,12 @@
 services:
-  # External Traefik - only exposes /api -> gateway
-  bfi-dev-traefik-external:
+  # Single External Traefik - exposes and load balances directly to services
+  bfi-dev-traefik:
     image: traefik:v2.10
-    container_name: bfi-dev-traefik-external
+    container_name: bfi-dev-traefik
     command:
       - "--api.insecure=true"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
-      - "--providers.docker.constraints=Label(`traefik.instance`, `external`)"
       - "--entrypoints.web.address=:${TRAEFIK_EXTERNAL_CONTAINER_PORT}"
     ports:
       - "${TRAEFIK_EXTERNAL_HOST_PORT}:${TRAEFIK_EXTERNAL_CONTAINER_PORT}"
@@ -18,9 +17,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     labels:
       - "traefik.enable=true"
-      - "traefik.instance=external"
       - "--api.dashboard=true"
-      - "--api.insecure=true"
       - "--accesslog=true"
     healthcheck:
       test: ["CMD-SHELL", "wget --spider --quiet http://localhost:${TRAEFIK_EXTERNAL_CONTAINER_UI_PORT}/dashboard/ || exit 1"]
@@ -28,79 +25,7 @@ services:
       timeout: 5s
       retries: 5
 
-
-
-
-  # Internal Traefik - handles internal service load balancing
-  bfi-dev-traefik-internal:
-    image: traefik:v2.10
-    container_name: bfi-dev-traefik-internal
-    command:
-      - "--api.insecure=true"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--providers.docker.constraints=Label(`traefik.instance`, `internal`)"
-      - "--entrypoints.web.address=:${TRAEFIK_INTENAL_CONTAINER_PORT}"
-    networks:
-      - bfi-dev-net
-    depends_on:
-      - bfi-dev-service-gateway
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    ports:
-      - "${TRAEFIK_INTERNAL_HOST_UI_PORT}:${TRAEFIK_INTERNAL_CONTAINER_UI_PORT}"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.instance=internal"
-      - "--api.dashboard=true"
-      - "--api.insecure=true"
-      - "--accesslog=true"
-    healthcheck:
-      test: ["CMD-SHELL", "wget --spider --quiet http://localhost:${TRAEFIK_INTERNAL_CONTAINER_UI_PORT}/dashboard/ || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-
-
-  # Gateway Service
-  bfi-dev-service-gateway:
-    build:
-      context: ../bfi-service-gateway
-      target: dev
-    image: bfi-dev-service-gateway
-    env_file:
-      - ./service-envs/.env.gateway.development
-    environment:
-      - NODE_ENV=${NODE_ENV}
-      - PORT=${PORT}
-    networks:
-      - bfi-dev-net
-    volumes:
-      - ../bfi-service-gateway:/app
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ../bfi-shared:/app/node_modules/@brace-for-impact/bfi-shared
-    ports:
-      - "${HOST_PORT_GATEWAY}:${PORT}"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.instance=external"
-      - "traefik.http.routers.gateway.rule=PathPrefix(`/api`)"
-      - "traefik.http.services.gateway.loadbalancer.server.port=${PORT}"
-    healthcheck:
-      test: ["CMD-SHELL", "wget --spider --quiet http://localhost:${PORT}/api/health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    depends_on:
-      bfi-dev-kafka:
-        condition: service_healthy
-      bfi-dev-traefik-external:
-        condition: service_healthy
-
-    # Monitor Service
-  
-  
+  # Monitor Service - exposed via Traefik
   bfi-dev-service-monitor:
     build:
       context: ../bfi-service-monitor
@@ -120,8 +45,7 @@ services:
       - "${HOST_PORT_MONITOR}:${PORT}"
     labels:
       - "traefik.enable=true"
-      - "traefik.instance=external"
-      - "traefik.http.routers.monitor.rule=PathPrefix(`/api/monitor`)"
+      - "traefik.http.routers.monitor.rule=PathPrefix(`/api/monito`)"
       - "traefik.http.services.monitor.loadbalancer.server.port=${PORT}"
     healthcheck:
       test: ["CMD-SHELL", "wget --spider --quiet http://localhost:${PORT}/api/monitor/health || exit 1"]
@@ -131,11 +55,43 @@ services:
     depends_on:
       bfi-dev-kafka:
         condition: service_healthy
-      bfi-dev-service-gateway:
+      bfi-dev-traefik:
         condition: service_healthy
-      bfi-dev-traefik-internal:
+  
+  # Auth Service - exposed via Traefik
+  bfi-dev-service-auth:
+    build:
+      context: ../bfi-service-auth
+      target: dev
+    image: bfi-dev-service-auth
+    env_file:
+      - ./service-envs/.env.auth.development
+    environment:
+      - NODE_ENV=${NODE_ENV}
+      - PORT=${PORT}
+    networks:
+      - bfi-dev-net
+    volumes:
+      - ../bfi-service-auth:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "${HOST_PORT_AUTH}:${PORT}"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.auth.rule=PathPrefix(`/api/auth`)"
+      - "traefik.http.services.auth.loadbalancer.server.port=${PORT}"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider --quiet http://localhost:${PORT}/api/auth/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      bfi-dev-kafka:
+        condition: service_healthy
+      bfi-dev-traefik:
         condition: service_healthy
 
+  # Zookeeper
   bfi-dev-zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
     container_name: bfi-dev-zookeeper
@@ -144,12 +100,12 @@ services:
     networks:
       - bfi-dev-net
     healthcheck:
-      # test: ["CMD-SHELL", "echo ruok | nc -w 2 localhost $${ZOOKEEPER_CLIENT_PORT} | grep imok"]
       test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/${ZOOKEEPER_CLIENT_PORT}'"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # Kafka
   bfi-dev-kafka:
     image: confluentinc/cp-kafka:7.6.0
     container_name: bfi-dev-kafka
@@ -166,13 +122,12 @@ services:
     ports:
       - "${KAFKA_HOST_PORT}:${KAFKA_CONTAINER_PORT}"
     healthcheck:
-      # test: ["CMD-SHELL", "nc -z localhost $${KAFKA_CONTAINER_PORT}"]
       test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/${KAFKA_CONTAINER_PORT}'"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-
+  # Kafdrop
   bfi-dev-kafdrop:
     image: obsidiandynamics/kafdrop
     container_name: kafdrop
