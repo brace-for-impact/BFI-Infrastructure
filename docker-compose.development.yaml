@@ -78,8 +78,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ../bfi-shared:/app/node_modules/@brace-for-impact/bfi-shared
       - /app/node_modules
-    ports:
-      - "${HOST_PORT_AUTH}:${PORT}"
+    # ports:
+    #   - "${HOST_PORT_AUTH}:${PORT}"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.auth.rule=PathPrefix(`/api/auth`)"
